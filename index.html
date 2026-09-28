@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>杀狐队积分</title>
-    <!-- 引入Supabase JS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 指定稳定版本supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.7"></script>
     <style>
         * {
             margin: 0;
@@ -124,7 +124,7 @@
         }
         .rank-1{background-color: #ffd70080;}
         .rank-2{background-color: #c0c0c080;}
-        .rank-3{background-color: #b8733380;}
+        .rank-3{background-color: #cd7f3280;}
         .btn-plus{background:#27ae60;}
         .btn-minus{background:#f39c12;}
         .btn-edit{background:#3498db;}
@@ -188,20 +188,20 @@
             </div>
         </div>
 
-        <!-- 页面1：主系统（导航+各个板块） -->
+        <!-- 页面1：主系统 -->
         <div id="pageMain" class="page">
             <h1>杀狐队积分</h1>
             <div class="login-box">
                 <span id="userInfo"></span>
                 <button class="btn-logout" onclick="logout()">退出登录</button>
             </div>
-            <!-- 导航切换按钮 -->
+            <!-- 导航 -->
             <div class="nav-bar">
                 <button onclick="switchTab('rank')">积分排行榜</button>
                 <button onclick="switchTab('shop')">兑换商店</button>
                 <button onclick="switchTab('task')">任务中心</button>
             </div>
-            <!-- 管理员操作面板，仅管理员可见 -->
+            <!-- 管理员面板 -->
             <div class="admin-panel" id="adminPanel">
                 <div>成员账号管理：</div>
                 <input id="memUser" placeholder="成员账号">
@@ -221,7 +221,7 @@
                 <button class="btn-add" onclick="addTask()">添加任务</button>
             </div>
 
-            <!-- Tab 排行榜 -->
+            <!-- 排行榜 -->
             <div id="tabRank" class="tab-content">
                 <h2>成员积分排行榜</h2>
                 <table>
@@ -241,13 +241,13 @@
                 </div>
             </div>
 
-            <!-- Tab 兑换商店 -->
+            <!-- 兑换商店 -->
             <div id="tabShop" class="tab-content" style="display:none">
                 <h2>兑换商店</h2>
                 <div class="card-wrap" id="goodsBox"></div>
             </div>
 
-            <!-- Tab 任务中心 -->
+            <!-- 任务中心 -->
             <div id="tabTask" class="tab-content" style="display:none">
                 <h2>任务中心</h2>
                 <div class="card-wrap" id="taskBox"></div>
@@ -277,15 +277,14 @@
     </div>
 
     <script>
-        // =====================填入好你的Supabase信息=====================
+        // ============ 填入你的Supabase信息 ============
         const SUPABASE_URL = "https://inteiawbqkzdvppwbysg.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_aksMu2APo8M8_91RswgD5g_WYvrshnl";
-        // ===================================================================
+        // ==============================================
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const ADMIN_PASSWORD = "123456";
         let currentUser = null;
 
-        //页面跳转控制
         function hideAllPage(){
             document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
         }
@@ -307,7 +306,6 @@
             switchTab("rank");
             await renderAll();
         }
-        //tab切换
         function switchTab(type){
             document.querySelectorAll(".tab-content").forEach(t=>t.style.display="none");
             if(type=="rank") document.getElementById("tabRank").style.display="block";
@@ -315,7 +313,7 @@
             if(type=="task") document.getElementById("tabTask").style.display="block";
         }
 
-        //登录逻辑
+        //登录
         function adminLogin(){
             const pwd = document.getElementById("adminPwdInput").value;
             if(pwd === ADMIN_PASSWORD){
@@ -339,7 +337,7 @@
                 document.getElementById("rankOpTh").style.display = "none";
                 alert("成员登录成功");
             }else{
-                alert("账号或密码错误，请联系管理员添加账号");
+                alert("账号或密码错误，请联系管理员");
             }
         }
         function logout(){
@@ -347,29 +345,25 @@
             backStart();
         }
 
-        //====成员账号管理（管理员）====
+        //成员
         async function addMemberAccount(){
             const user = document.getElementById("memUser").value.trim();
             const pwd = document.getElementById("memPwd").value.trim();
             const score = Number(document.getElementById("memScore").value) || 0;
             if(!user||!pwd){alert("账号和密码不能为空");return;}
             const {error} = await supabase.from("member_accounts").insert([{username:user,password:pwd,score:score}]);
-            if(error){
-                alert("账号已存在！");
-                return;
-            }
-            await addLog(`新增成员账号【${user}】初始积分${score}`);
+            if(error){alert("添加失败：账号已存在");return;}
+            await addLog(`新增成员【${user}】，初始积分${score}`);
             document.getElementById("memUser").value="";
             document.getElementById("memPwd").value="";
             document.getElementById("memScore").value="";
             await renderRank();
         }
-        //修改成员积分
         async function changeScore(id, num){
             const {data} = await supabase.from("member_accounts").select("*").eq("id",id).single();
             const newScore = data.score + num;
             await supabase.from("member_accounts").update({score:newScore}).eq("id",id);
-            await addLog(`成员【${data.username}】${num>0?"+":num}积分`);
+            await addLog(`成员【${data.username}】积分变动 ${num>0?"+":num}${Math.abs(num)}`);
             await renderRank();
         }
         async function editMemberScore(id){
@@ -377,29 +371,27 @@
             const newS = prompt("设置新积分", data.score);
             if(newS===null) return;
             const s = Number(newS);
-            if(isNaN(s)){alert("必须是数字");return;}
-            const old = data.score;
+            if(isNaN(s)){alert("必须输入数字");return;}
             await supabase.from("member_accounts").update({score:s}).eq("id",id);
-            await addLog(`成员【${data.username}】积分从${old}修改为${s}`);
+            await addLog(`成员【${data.username}】积分修改为${s}`);
             await renderRank();
         }
         async function delMember(id,username){
-            if(!confirm(`确定删除账号【${username}】？`)) return;
+            if(!confirm(`确定删除成员【${username}】？`)) return;
             await supabase.from("member_accounts").delete().eq("id",id);
-            await addLog(`删除成员账号【${username}】`);
+            await addLog(`删除成员【${username}】`);
             await renderRank();
         }
-        //渲染排行榜
         async function renderRank(){
             const {data} = await supabase.from("member_accounts").select("*").order("score",{ascending:false});
             const tbody = document.getElementById("rankBody");
             tbody.innerHTML = "";
+            const isAdmin = currentUser?.type==="admin";
             data.forEach((item,idx)=>{
                 const tr = document.createElement("tr");
-                if(idx==0) tr.className="rank-1";
-                else if(idx==1) tr.className="rank-2";
-                else if(idx==2) tr.className="rank-3";
-                const isAdmin = currentUser?.type==="admin";
+                if(idx===0) tr.className="rank-1";
+                else if(idx===1) tr.className="rank-2";
+                else if(idx===2) tr.className="rank-3";
                 tr.innerHTML=`
                     <td>${idx+1}</td>
                     <td>${item.username}</td>
@@ -414,7 +406,7 @@
             })
         }
 
-        //====商店模块====
+        //商品
         async function addGoods(){
             const name = document.getElementById("goodsName").value.trim();
             const score = Number(document.getElementById("goodsScore").value);
@@ -433,9 +425,8 @@
             if(newScore===null) return;
             const s = Number(newScore);
             if(isNaN(s)){alert("积分必须是数字");return;}
-            const old = `名称${data.name},积分${data.score}`;
             await supabase.from("goods_list").update({name:newName.trim(),score:s}).eq("id",id);
-            await addLog(`修改商品【${newName.trim()}】原信息：${old}`);
+            await addLog(`修改商品【${newName.trim()}】`);
             await renderShop();
         }
         async function delGoods(id,name){
@@ -467,7 +458,7 @@
             })
         }
 
-        //====任务模块====
+        //任务
         async function addTask(){
             const name = document.getElementById("taskName").value.trim();
             const desc = document.getElementById("taskDesc").value.trim();
@@ -484,15 +475,14 @@
             const {data} = await supabase.from("task_list").select("*").eq("id",id).single();
             const newName = prompt("修改任务名称",data.name);
             if(newName===null) return;
-            const newDesc = prompt("修改任务目标描述",data.description);
+            const newDesc = prompt("修改任务描述",data.description);
             if(newDesc===null) return;
             const newReward = prompt("修改奖励积分",data.reward);
             if(newReward===null) return;
             const r = Number(newReward);
             if(isNaN(r)){alert("奖励积分必须数字");return;}
-            const old = `名称${data.name},描述${data.description},奖励${data.reward}`;
             await supabase.from("task_list").update({name:newName.trim(),description:newDesc.trim(),reward:r}).eq("id",id);
-            await addLog(`修改任务【${newName.trim()}】原信息：${old}`);
+            await addLog(`修改任务【${newName.trim()}】`);
             await renderTask();
         }
         async function delTask(id,name){
@@ -518,7 +508,7 @@
                 }
                 div.innerHTML=`
                     <div class="card-title">${item.name}</div>
-                    <div class="card-info">任务目标：${item.description}<br>奖励积分：${item.reward}</div>
+                    <div class="card-info">任务：${item.description}<br>奖励积分：${item.reward}</div>
                     ${btn}`;
                 box.appendChild(div);
             })
@@ -549,4 +539,3 @@
     </script>
 </body>
 </html>
-<!-- （注：内容由AI生成） -->
