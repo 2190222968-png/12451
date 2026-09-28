@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>杀狐队积分</title>
+    <!-- 引入Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        body {
+            background-color: #f4f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        h2{
+            margin:20px 0 12px;
+            color:#2c3e50;
+            font-size:20px;
+        }
+        .page{
+            display:none;
+        }
+        .page.active{
+            display:block;
+        }
+        /* 首页身份选择 */
+        .start-box{
+            text-align:center;
+            margin-top:80px;
+        }
+        .start-box button{
+            margin:10px;
+            padding:14px 30px;
+            font-size:18px;
+        }
+        /* 导航按钮 */
+        .nav-bar{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-bottom:20px;
+        }
+        .nav-bar button{
+            background:#4472c4;
+        }
+        /* 登录框 */
+        .login-box {
+            background: #fff;
+            padding:16px;
+            border-radius: 8px;
+            margin-bottom:20px;
+            display:flex;
+            gap:10px;
+            flex-wrap: wrap;
+            align-items:center;
+        }
+        .login-box input{
+            padding:8px;
+            flex:1;
+            min-width:150px;
+        }
+        button{
+            padding:8px 14px;
+            border:none;
+            border-radius:4px;
+            cursor:pointer;
+            color:white;
+            font-size:14px;
+        }
+        .btn-login{
+            background:#3498db;
+        }
+        .btn-logout{
+            background:#7f8c8d;
+        }
+        .btn-add{
+            background:#27ae60;
+        }
+        /* 管理员面板 */
+        .admin-panel{
+            background:#fff;
+            padding:16px;
+            border-radius:8px;
+            margin-bottom:20px;
+            display:none;
+            flex-wrap:wrap;
+            gap:10px;
+        }
+        .admin-panel input{
+            padding:8px;
+            min-width:140px;
+        }
+        /* 排行榜表格 */
+        table{
+            width:100%;
+            border-collapse: collapse;
+            background:#fff;
+            border-radius:8px;
+            overflow:hidden;
+            margin-bottom:20px;
+        }
+        th,td{
+            padding:12px;
+            text-align:center;
+            border-bottom:1px solid #eee;
+        }
+        th{
+            background:#34495e;
+            color:white;
+        }
+        .rank-1{background-color: #ffd70080;}
+        .rank-2{background-color: #c0c0c080;}
+        .rank-3{background-color: #b8733380;}
+        .btn-plus{background:#27ae60;}
+        .btn-minus{background:#f39c12;}
+        .btn-edit{background:#3498db;}
+        .btn-del{background:#e74c3c;}
+        /* 卡片通用：商品、任务 */
+        .card-wrap{
+            display:grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap:16px;
+            margin-bottom:20px;
+        }
+        .card{
+            background:#fff;
+            padding:14px;
+            border-radius:8px;
+        }
+        .card-title{
+            font-weight:bold;
+            font-size:16px;
+            margin-bottom:6px;
+        }
+        .card-info{
+            font-size:14px;
+            color:#555;
+            line-height:1.6;
+        }
+        .card-btn-group{
+            margin-top:10px;
+            display:flex;
+            gap:6px;
+        }
+        /* 日志 */
+        .log-area{
+            background:#fff;
+            padding:16px;
+            border-radius:8px;
+        }
+        .log-item{
+            padding:6px 0;
+            border-bottom:1px solid #eee;
+            font-size:14px;
+            color:#444;
+        }
+        @media (max-width:600px) {
+            th,td{padding:8px 4px;font-size:13px;}
+            button{padding:6px 8px;font-size:12px;}
+            .card-btn-group{flex-wrap:wrap;}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 页面0：起始身份选择页 -->
+        <div id="pageStart" class="page active">
+            <div class="start-box">
+                <h1>杀狐队积分</h1>
+                <p style="margin:20px 0;">请选择你的身份</p>
+                <br>
+                <button class="btn-login" onclick="showAdminLogin()">管理员登录</button>
+                <button class="btn-login" onclick="showMemberLogin()">成员登录</button>
+            </div>
+        </div>
+
+        <!-- 页面1：主系统（导航+各个板块） -->
+        <div id="pageMain" class="page">
+            <h1>杀狐队积分</h1>
+            <div class="login-box">
+                <span id="userInfo"></span>
+                <button class="btn-logout" onclick="logout()">退出登录</button>
+            </div>
+            <!-- 导航切换按钮 -->
+            <div class="nav-bar">
+                <button onclick="switchTab('rank')">积分排行榜</button>
+                <button onclick="switchTab('shop')">兑换商店</button>
+                <button onclick="switchTab('task')">任务中心</button>
+            </div>
+            <!-- 管理员操作面板，仅管理员可见 -->
+            <div class="admin-panel" id="adminPanel">
+                <div>成员账号管理：</div>
+                <input id="memUser" placeholder="成员账号">
+                <input id="memPwd" placeholder="成员密码">
+                <input id="memScore" type="number" placeholder="初始积分">
+                <button class="btn-add" onclick="addMemberAccount()">添加成员账号</button>
+
+                <div style="width:100%;margin-top:8px">商品管理：</div>
+                <input id="goodsName" placeholder="商品名称">
+                <input id="goodsScore" type="number" placeholder="兑换所需积分">
+                <button class="btn-add" onclick="addGoods()">添加兑换商品</button>
+
+                <div style="width:100%;margin-top:8px">任务管理：</div>
+                <input id="taskName" placeholder="任务名称">
+                <input id="taskDesc" placeholder="任务目标描述">
+                <input id="taskReward" type="number" placeholder="任务奖励积分">
+                <button class="btn-add" onclick="addTask()">添加任务</button>
+            </div>
+
+            <!-- Tab 排行榜 -->
+            <div id="tabRank" class="tab-content">
+                <h2>成员积分排行榜</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>名次</th>
+                            <th>账号</th>
+                            <th>积分</th>
+                            <th id="rankOpTh" style="display:none">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankBody"></tbody>
+                </table>
+                <div class="log-area">
+                    <h3>操作日志</h3>
+                    <div id="logBox"></div>
+                </div>
+            </div>
+
+            <!-- Tab 兑换商店 -->
+            <div id="tabShop" class="tab-content" style="display:none">
+                <h2>兑换商店</h2>
+                <div class="card-wrap" id="goodsBox"></div>
+            </div>
+
+            <!-- Tab 任务中心 -->
+            <div id="tabTask" class="tab-content" style="display:none">
+                <h2>任务中心</h2>
+                <div class="card-wrap" id="taskBox"></div>
+            </div>
+        </div>
+
+        <!-- 管理员登录弹窗 -->
+        <div id="adminLoginPop" class="page">
+            <h2>管理员登录</h2>
+            <div class="login-box">
+                <input id="adminPwdInput" type="password" placeholder="管理员密码">
+                <button class="btn-login" onclick="adminLogin()">登录</button>
+                <button onclick="backStart()">返回</button>
+            </div>
+        </div>
+
+        <!-- 成员登录弹窗 -->
+        <div id="memberLoginPop" class="page">
+            <h2>成员登录</h2>
+            <div class="login-box">
+                <input id="userInput" placeholder="账号">
+                <input id="pwdInput" type="password" placeholder="密码">
+                <button class="btn-login" onclick="memberLogin()">登录</button>
+                <button onclick="backStart()">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================填入好你的Supabase信息=====================
+        const SUPABASE_URL = "https://inteiawbqkzdvppwbysg.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_aksMu2APo8M8_91RswgD5g_WYvrshnl";
+        // ===================================================================
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const ADMIN_PASSWORD = "123456";
+        let currentUser = null;
+
+        //页面跳转控制
+        function hideAllPage(){
+            document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+        }
+        function showAdminLogin(){
+            hideAllPage();
+            document.getElementById("adminLoginPop").classList.add("active");
+        }
+        function showMemberLogin(){
+            hideAllPage();
+            document.getElementById("memberLoginPop").classList.add("active");
+        }
+        function backStart(){
+            hideAllPage();
+            document.getElementById("pageStart").classList.add("active");
+        }
+        async function enterMain(){
+            hideAllPage();
+            document.getElementById("pageMain").classList.add("active");
+            switchTab("rank");
+            await renderAll();
+        }
+        //tab切换
+        function switchTab(type){
+            document.querySelectorAll(".tab-content").forEach(t=>t.style.display="none");
+            if(type=="rank") document.getElementById("tabRank").style.display="block";
+            if(type=="shop") document.getElementById("tabShop").style.display="block";
+            if(type=="task") document.getElementById("tabTask").style.display="block";
+        }
+
+        //登录逻辑
+        function adminLogin(){
+            const pwd = document.getElementById("adminPwdInput").value;
+            if(pwd === ADMIN_PASSWORD){
+                currentUser = {type:"admin"};
+                enterMain();
+                document.getElementById("userInfo").innerText = "✅ 当前身份：管理员";
+                document.getElementById("adminPanel").style.display = "flex";
+                document.getElementById("rankOpTh").style.display = "table-cell";
+                alert("管理员登录成功");
+            }else alert("密码错误");
+        }
+        async function memberLogin(){
+            const u = document.getElementById("userInput").value.trim();
+            const p = document.getElementById("pwdInput").value.trim();
+            const {data,error} = await supabase.from("member_accounts").select("*").eq("username",u).eq("password",p).single();
+            if(data){
+                currentUser = {type:"member", name:u};
+                enterMain();
+                document.getElementById("userInfo").innerText = `✅ 当前身份：成员【${u}】`;
+                document.getElementById("adminPanel").style.display = "none";
+                document.getElementById("rankOpTh").style.display = "none";
+                alert("成员登录成功");
+            }else{
+                alert("账号或密码错误，请联系管理员添加账号");
+            }
+        }
+        function logout(){
+            currentUser=null;
+            backStart();
+        }
+
+        //====成员账号管理（管理员）====
+        async function addMemberAccount(){
+            const user = document.getElementById("memUser").value.trim();
+            const pwd = document.getElementById("memPwd").value.trim();
+            const score = Number(document.getElementById("memScore").value) || 0;
+            if(!user||!pwd){alert("账号和密码不能为空");return;}
+            const {error} = await supabase.from("member_accounts").insert([{username:user,password:pwd,score:score}]);
+            if(error){
+                alert("账号已存在！");
+                return;
+            }
+            await addLog(`新增成员账号【${user}】初始积分${score}`);
+            document.getElementById("memUser").value="";
+            document.getElementById("memPwd").value="";
+            document.getElementById("memScore").value="";
+            await renderRank();
+        }
+        //修改成员积分
+        async function changeScore(id, num){
+            const {data} = await supabase.from("member_accounts").select("*").eq("id",id).single();
+            const newScore = data.score + num;
+            await supabase.from("member_accounts").update({score:newScore}).eq("id",id);
+            await addLog(`成员【${data.username}】${num>0?"+":num}积分`);
+            await renderRank();
+        }
+        async function editMemberScore(id){
+            const {data} = await supabase.from("member_accounts").select("*").eq("id",id).single();
+            const newS = prompt("设置新积分", data.score);
+            if(newS===null) return;
+            const s = Number(newS);
+            if(isNaN(s)){alert("必须是数字");return;}
+            const old = data.score;
+            await supabase.from("member_accounts").update({score:s}).eq("id",id);
+            await addLog(`成员【${data.username}】积分从${old}修改为${s}`);
+            await renderRank();
+        }
+        async function delMember(id,username){
+            if(!confirm(`确定删除账号【${username}】？`)) return;
+            await supabase.from("member_accounts").delete().eq("id",id);
+            await addLog(`删除成员账号【${username}】`);
+            await renderRank();
+        }
+        //渲染排行榜
+        async function renderRank(){
+            const {data} = await supabase.from("member_accounts").select("*").order("score",{ascending:false});
+            const tbody = document.getElementById("rankBody");
+            tbody.innerHTML = "";
+            data.forEach((item,idx)=>{
+                const tr = document.createElement("tr");
+                if(idx==0) tr.className="rank-1";
+                else if(idx==1) tr.className="rank-2";
+                else if(idx==2) tr.className="rank-3";
+                const isAdmin = currentUser?.type==="admin";
+                tr.innerHTML=`
+                    <td>${idx+1}</td>
+                    <td>${item.username}</td>
+                    <td>${item.score}</td>
+                    <td ${isAdmin?'':'style="display:none"'}>
+                        <button class="btn-plus" onclick="changeScore(${item.id},1)">+1</button>
+                        <button class="btn-minus" onclick="changeScore(${item.id},-1)">-1</button>
+                        <button class="btn-edit" onclick="editMemberScore(${item.id})">编辑</button>
+                        <button class="btn-del" onclick="delMember(${item.id},'${item.username}')">删除</button>
+                    </td>`;
+                tbody.appendChild(tr);
+            })
+        }
+
+        //====商店模块====
+        async function addGoods(){
+            const name = document.getElementById("goodsName").value.trim();
+            const score = Number(document.getElementById("goodsScore").value);
+            if(!name || isNaN(score)){alert("商品名称、兑换积分不能为空");return;}
+            await supabase.from("goods_list").insert([{name:name,score:score}]);
+            await addLog(`新增商品【${name}】兑换需要${score}积分`);
+            document.getElementById("goodsName").value="";
+            document.getElementById("goodsScore").value="";
+            await renderShop();
+        }
+        async function editGoods(id){
+            const {data} = await supabase.from("goods_list").select("*").eq("id",id).single();
+            const newName = prompt("修改商品名称",data.name);
+            if(newName===null) return;
+            const newScore = prompt("修改兑换积分",data.score);
+            if(newScore===null) return;
+            const s = Number(newScore);
+            if(isNaN(s)){alert("积分必须是数字");return;}
+            const old = `名称${data.name},积分${data.score}`;
+            await supabase.from("goods_list").update({name:newName.trim(),score:s}).eq("id",id);
+            await addLog(`修改商品【${newName.trim()}】原信息：${old}`);
+            await renderShop();
+        }
+        async function delGoods(id,name){
+            if(!confirm(`删除商品【${name}】？`)) return;
+            await supabase.from("goods_list").delete().eq("id",id);
+            await addLog(`删除商品【${name}】`);
+            await renderShop();
+        }
+        async function renderShop(){
+            const {data} = await supabase.from("goods_list").select("*");
+            const box = document.getElementById("goodsBox");
+            box.innerHTML="";
+            const isAdmin = currentUser?.type==="admin";
+            data.forEach((item)=>{
+                const div = document.createElement("div");
+                div.className="card";
+                let btn = "";
+                if(isAdmin){
+                    btn = `<div class="card-btn-group">
+                        <button class="btn-edit" onclick="editGoods(${item.id})">编辑</button>
+                        <button class="btn-del" onclick="delGoods(${item.id},'${item.name}')">删除</button>
+                    </div>`;
+                }
+                div.innerHTML=`
+                    <div class="card-title">${item.name}</div>
+                    <div class="card-info">兑换积分：${item.score}</div>
+                    ${btn}`;
+                box.appendChild(div);
+            })
+        }
+
+        //====任务模块====
+        async function addTask(){
+            const name = document.getElementById("taskName").value.trim();
+            const desc = document.getElementById("taskDesc").value.trim();
+            const reward = Number(document.getElementById("taskReward").value);
+            if(!name || !desc || isNaN(reward)){alert("任务名称、描述、奖励积分必填");return;}
+            await supabase.from("task_list").insert([{name:name,description:desc,reward:reward}]);
+            await addLog(`新增任务【${name}】奖励${reward}积分`);
+            document.getElementById("taskName").value="";
+            document.getElementById("taskDesc").value="";
+            document.getElementById("taskReward").value="";
+            await renderTask();
+        }
+        async function editTask(id){
+            const {data} = await supabase.from("task_list").select("*").eq("id",id).single();
+            const newName = prompt("修改任务名称",data.name);
+            if(newName===null) return;
+            const newDesc = prompt("修改任务目标描述",data.description);
+            if(newDesc===null) return;
+            const newReward = prompt("修改奖励积分",data.reward);
+            if(newReward===null) return;
+            const r = Number(newReward);
+            if(isNaN(r)){alert("奖励积分必须数字");return;}
+            const old = `名称${data.name},描述${data.description},奖励${data.reward}`;
+            await supabase.from("task_list").update({name:newName.trim(),description:newDesc.trim(),reward:r}).eq("id",id);
+            await addLog(`修改任务【${newName.trim()}】原信息：${old}`);
+            await renderTask();
+        }
+        async function delTask(id,name){
+            if(!confirm(`删除任务【${name}】？`)) return;
+            await supabase.from("task_list").delete().eq("id",id);
+            await addLog(`删除任务【${name}】`);
+            await renderTask();
+        }
+        async function renderTask(){
+            const {data} = await supabase.from("task_list").select("*");
+            const box = document.getElementById("taskBox");
+            box.innerHTML="";
+            const isAdmin = currentUser?.type==="admin";
+            data.forEach((item)=>{
+                const div = document.createElement("div");
+                div.className="card";
+                let btn = "";
+                if(isAdmin){
+                    btn = `<div class="card-btn-group">
+                        <button class="btn-edit" onclick="editTask(${item.id})">编辑</button>
+                        <button class="btn-del" onclick="delTask(${item.id},'${item.name}')">删除</button>
+                    </div>`;
+                }
+                div.innerHTML=`
+                    <div class="card-title">${item.name}</div>
+                    <div class="card-info">任务目标：${item.description}<br>奖励积分：${item.reward}</div>
+                    ${btn}`;
+                box.appendChild(div);
+            })
+        }
+
+        //日志
+        async function addLog(content){
+            await supabase.from("log_list").insert([{content:content}]);
+            await renderLog();
+        }
+        async function renderLog(){
+            const {data} = await supabase.from("log_list").select("*").order("create_at",{ascending:false}).limit(50);
+            const box = document.getElementById("logBox");
+            box.innerHTML = "";
+            data.forEach(log=>{
+                const div = document.createElement("div");
+                div.className="log-item";
+                div.innerText = `[${log.create_at}] ${log.content}`;
+                box.appendChild(div);
+            })
+        }
+        async function renderAll(){
+            await renderRank();
+            await renderShop();
+            await renderTask();
+            await renderLog();
+        }
+    </script>
+</body>
+</html>
+<!-- （注：内容由AI生成） -->
